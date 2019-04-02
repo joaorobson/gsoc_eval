@@ -2,6 +2,7 @@ import scipy.signal
 import matplotlib.pyplot as plt
 from hdf5 import HDF5
 from time_conversion import TimeConversion
+import sys
 
 def get_local_times(hdf5_file):
     unix_time = int(hdf5_file.filename[:19])
@@ -21,7 +22,7 @@ def get_image(hdf5):
     plt.show()
 
 if __name__ == "__main__":
-    hdf5 = HDF5('1541962108935000000_167_838.h5')
+    hdf5 = HDF5(sys.argv[1])
     f = hdf5.read_file()
 
     get_local_times(f)
