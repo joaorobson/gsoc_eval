@@ -1,63 +1,31 @@
-from datetime import datetime
-import pytz
-import h5py
-import csv
+import scipy.signal
+import matplotlib.pyplot as plt
+from hdf5 import HDF5
+from time_conversion import TimeConversion
 
-def nanoseconds_to_seconds(n_seconds):
-    seconds = n_seconds/10**9
-    return seconds
+def get_local_times(hdf5_file):
+    unix_time = int(hdf5_file.filename[:19])
+    converted_date = TimeConversion(unix_time)
+    print("Converted times")
+    print("UTC Time: ", converted_date.utc_time)
+    print("CERN Time: ", converted_date.cern_time)
 
-def convert_unix_time(unix_time):
-    date = datetime.utcfromtimestamp(unix_time)
-    return date
+def get_image(hdf5):
+    image_data = hdf5.get_dataset_value('/AwakeEventData/XMPP-STREAK/StreakImage/streakImageData', f)
+    image_height = hdf5.get_dataset_value('/AwakeEventData/XMPP-STREAK/StreakImage/streakImageHeight', f)
+    image_width = hdf5.get_dataset_value('/AwakeEventData/XMPP-STREAK/StreakImage/streakImageWidth', f)
+    image_matrix = image_data.reshape(image_height[0], image_width[0])
+    image = scipy.signal.medfilt(image_matrix)
+    plt.imshow(image)
+    plt.savefig('image.png')
+    plt.show()
 
-def get_utc_time(date):
-    datetime_in_utc = date.astimezone(pytz.utc)
-    return datetime_in_utc
+if __name__ == "__main__":
+    hdf5 = HDF5('1541962108935000000_167_838.h5')
+    f = hdf5.read_file()
 
-def get_cern_time(date):
-    datetime_in_cern = date.astimezone(pytz.timezone('Europe/Zurich'))
-    return datetime_in_cern
+    get_local_times(f)
 
-def read_file(path):
-    f = h5py.File(path, 'r')
-    return f
-
-def write_csv(data, path, keys):
-    with open(path, 'w') as output:
-        dict_writer = csv.DictWriter(output, keys)
-        dict_writer.writeheader()
-        dict_writer.writerows(data)
-
-
-nodes = []
-def explore(name, node):
-    row = {}
-    if isinstance(node, h5py.Dataset):
-        row['instance']= 'Dataset' 
-        row['shape']= node.shape
-        row['size'] = node.size
-        row['name'] = node.name
-        try:
-            row['dtype']  = node.dtype
-        except:
-            row['dtype']  = 'error'
-    elif isinstance(node, h5py.Group):
-        row['instance']= 'Group' 
-        row['shape']= '' 
-        row['size'] = ''
-        row['name'] = node.name
-        row['dtype']  = ''
-    nodes.append(row)
-
-f = read_file('1541962108935000000_167_838.h5')
-unix_time = f.filename[:19]
-unix_time = int(unix_time)
-unix_seconds = nanoseconds_to_seconds(unix_time)
-date = convert_unix_time(unix_seconds)
-print(get_utc_time(date))
-print(get_cern_time(date))
-
-f.visititems(explore)
-keys = ['instance', 'shape', 'size', 'name', 'dtype']
-write_csv(nodes, 'oi.csv', keys)
+    f.visititems(hdf5.explore)
+    get_image(hdf5)
+    hdf5.write_csv('hdf5.csv')
